@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { socket } from "./socket";
 import { QRCodeCanvas } from "qrcode.react";
 import SearchSongs from "./SearchSongs";
-import "./App.css"; // Make sure this is imported!
+import "./App.css";
 
 function App() {
   const [roomId, setRoomId] = useState("");
@@ -23,27 +23,47 @@ function App() {
 
     socket.on("update-queue", (q) => {
       setQueue(q);
+
+      // 🎯 set first song if nothing playing
       if (!currentSong && q.length > 0) {
         setCurrentSong(q[0]);
       }
+    });
+
+    // ⏭ Listen for next song from server
+    socket.on("play-song", (song) => {
+      setCurrentSong(song);
     });
 
     return () => {
       socket.off("room-created");
       socket.off("joined-room");
       socket.off("update-queue");
+      socket.off("play-song");
     };
   }, [currentSong]);
 
   const createRoom = () => socket.emit("create-room");
   const joinRoom = () => socket.emit("join-room", roomId);
-  const voteSong = (videoId) => socket.emit("vote-song", { roomId: currentRoom, videoId });
 
-  const joinLink = `http://localhost:3000/?room=${createdRoom}`;
+  // 🚫 send userId to prevent vote spam
+  const voteSong = (videoId) => {
+    socket.emit("vote-song", {
+      roomId: currentRoom,
+      videoId,
+      userId: socket.id,
+    });
+  };
+
+  // ⏭ manual next button (demo-friendly)
+  const nextSong = () => {
+    socket.emit("next-song", currentRoom);
+  };
+
+  const joinLink = `http://localhost:3001/?room=${createdRoom}`;
 
   return (
     <div className="app-container">
-      {/* Dynamic Background */}
       <div className="blob blob-1"></div>
       <div className="blob blob-2"></div>
 
@@ -69,8 +89,14 @@ function App() {
 
           <div style={{ display: "flex", gap: "10px" }}>
             <input
-              className="input-custom" // Add styles for this in CSS if you want
-              style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid #333", background: "#000", color: "#fff" }}
+              style={{
+                flex: 1,
+                padding: "12px",
+                borderRadius: "10px",
+                border: "1px solid #333",
+                background: "#000",
+                color: "#fff",
+              }}
               placeholder="Enter Room ID"
               value={roomId}
               onChange={(e) => setRoomId(e.target.value)}
@@ -83,8 +109,10 @@ function App() {
       {currentRoom && (
         <div className="room-layout">
           <div className="main-stage">
-            <h2 style={{ marginBottom: "20px" }}>Now Playing in <span style={{ color: "#a855f7" }}>{currentRoom}</span></h2>
-            
+            <h2 style={{ marginBottom: "20px" }}>
+              Now Playing in <span style={{ color: "#a855f7" }}>{currentRoom}</span>
+            </h2>
+
             <div className="player-frame">
               {currentSong ? (
                 <iframe
@@ -103,20 +131,53 @@ function App() {
               )}
             </div>
 
+            {/* ⏭ NEXT BUTTON */}
+            <button
+              onClick={nextSong}
+              style={{
+                marginTop: "15px",
+                padding: "10px 20px",
+                borderRadius: "8px",
+                border: "none",
+                background: "#a855f7",
+                color: "#fff",
+                cursor: "pointer",
+              }}
+            >
+              ⏭ Next Song
+            </button>
+
             <SearchSongs roomId={currentRoom} />
           </div>
 
           <div className="queue-sidebar">
             <h3 style={{ marginBottom: "20px", paddingLeft: "10px" }}>Up Next</h3>
+
             {queue.map((song, index) => (
               <div key={index} className="song-card">
                 <img src={song.thumbnail} alt="" className="thumbnail" />
+
                 <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: "0.9rem", margin: "0 0 5px 0", fontWeight: "bold" }}>{song.title}</p>
+                  <p style={{ fontSize: "0.9rem", margin: "0 0 5px 0", fontWeight: "bold" }}>
+                    {song.title}
+                  </p>
+
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: "0.8rem", color: "#ec4899" }}>🔥 {song.votes}</span>
-                    <button className="vote-btn" onClick={() => voteSong(song.videoId)} 
-                      style={{ background: "none", border: "1px solid #a855f7", color: "#a855f7", borderRadius: "4px", cursor: "pointer", fontSize: "0.7rem" }}>
+                    <span style={{ fontSize: "0.8rem", color: "#ec4899" }}>
+                      🔥 {song.votes}
+                    </span>
+
+                    <button
+                      onClick={() => voteSong(song.videoId)}
+                      style={{
+                        background: "none",
+                        border: "1px solid #a855f7",
+                        color: "#a855f7",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "0.7rem",
+                      }}
+                    >
                       VOTE
                     </button>
                   </div>
