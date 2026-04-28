@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { socket } from "./socket";
 import SearchSongs from "./SearchSongs";
 import "./App.css";
@@ -6,38 +6,34 @@ import QRSection from "./QRSection";
 
 function App() {
   const [roomId, setRoomId] = useState("");
-  const [createdRoom, setCreatedRoom] = useState("");
   const [currentRoom, setCurrentRoom] = useState("");
   const [queue, setQueue] = useState([]);
   const [currentSong, setCurrentSong] = useState(null);
   const [isHost, setIsHost] = useState(false);
   const [votedSongs, setVotedSongs] = useState(new Set());
-  const [partyStarted, setPartyStarted] = useState(false); // ✅ autoplay fix
+  const [partyStarted, setPartyStarted] = useState(false);
 
   // ✅ Auto-join from QR link
   useEffect(() => {
-  const params = new URLSearchParams(window.location.search);
-  const roomFromUrl = params.get("room");
-  if (!roomFromUrl) return;
+    const params = new URLSearchParams(window.location.search);
+    const roomFromUrl = params.get("room");
+    if (!roomFromUrl) return;
 
-  // If already connected, join immediately
-  if (socket.connected) {
-    socket.emit("join-room", roomFromUrl);
-  } else {
-    // Wait for connection first
-    socket.on("connect", () => {
+    if (socket.connected) {
       socket.emit("join-room", roomFromUrl);
-    });
-  }
+    } else {
+      socket.on("connect", () => {
+        socket.emit("join-room", roomFromUrl);
+      });
+    }
 
-  return () => socket.off("connect");
-}, []);
+    return () => socket.off("connect");
+  }, []);
 
   useEffect(() => {
     socket.on("room-created", (id) => {
-      setCreatedRoom(id);
       setCurrentRoom(id);
-      setIsHost(true); // ✅ creator is host
+      setIsHost(true);
     });
 
     socket.on("joined-room", (id) => {
@@ -47,19 +43,24 @@ function App() {
 
     socket.on("update-queue", (q) => {
       setQueue(q);
-      if (!currentSong && q.length > 0) {
-        setCurrentSong(q[0]);
-      }
     });
 
     socket.on("play-song", (song) => {
       setCurrentSong(song);
+      if (song) setPartyStarted(true); // ✅ auto-start for all users
     });
 
     // ✅ Late joiner gets current state
     socket.on("room-state", ({ queue: q, currentSong: cs }) => {
       setQueue(q);
-      if (cs) setCurrentSong(cs);
+      if (cs) {
+        setCurrentSong(cs);
+        setPartyStarted(true); // ✅ late joiners also auto-start
+      }
+    });
+
+    socket.on("promoted-to-host", () => {
+      setIsHost(true); // ✅ handle host promotion
     });
 
     return () => {
@@ -68,8 +69,9 @@ function App() {
       socket.off("update-queue");
       socket.off("play-song");
       socket.off("room-state");
+      socket.off("promoted-to-host");
     };
-  }, [currentSong]);
+  }, []);
 
   const createRoom = () => socket.emit("create-room");
   const joinRoom = () => {
@@ -77,13 +79,13 @@ function App() {
   };
 
   const voteSong = (videoId) => {
-    if (votedSongs.has(videoId)) return; // ✅ already voted
+    if (votedSongs.has(videoId)) return;
     socket.emit("vote-song", { roomId: currentRoom, videoId, userId: socket.id });
     setVotedSongs((prev) => new Set(prev).add(videoId));
   };
 
   const nextSong = () => {
-    if (!isHost) return; // ✅ host only
+    if (!isHost) return;
     socket.emit("next-song", currentRoom);
   };
 
@@ -99,24 +101,26 @@ function App() {
       {!currentRoom && (
         <div
           className="glass-card"
-          style={{ maxWidth: "500px", margin: "0 auto", textAlign: "center" }}
+          style={{ maxWidth: "480px", margin: "0 auto", textAlign: "center" }}
         >
-          <button className="btn-primary" style={{ width: "100%" }} onClick={createRoom}>
+          <button
+            className="btn-primary"
+            style={{ width: "100%", fontSize: "1rem", padding: "16px" }}
+            onClick={createRoom}
+          >
             🚀 Start a New Party
           </button>
 
-          <div style={{ margin: "25px 0", opacity: 0.3 }}>— OR —</div>
+          <div style={{ margin: "24px 0", display: "flex", alignItems: "center", gap: "12px" }}>
+            <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.1)" }} />
+            <span style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.85rem" }}>OR</span>
+            <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.1)" }} />
+          </div>
 
           <div style={{ display: "flex", gap: "10px" }}>
             <input
-              style={{
-                flex: 1,
-                padding: "12px",
-                borderRadius: "10px",
-                border: "1px solid #333",
-                background: "#000",
-                color: "#fff",
-              }}
+              className="input-glow"
+              style={{ flex: 1 }}
               placeholder="Enter Room ID"
               value={roomId}
               onChange={(e) => setRoomId(e.target.value)}
@@ -132,57 +136,76 @@ function App() {
       {currentRoom && (
         <div className="room-layout">
           <div className="main-stage">
-            <h2 style={{ marginBottom: "20px" }}>
-              Now Playing in{" "}
-              <span style={{ color: "#a855f7" }}>{currentRoom}</span>
-              {isHost && (
-                <span
-                  style={{
-                    marginLeft: "10px",
-                    fontSize: "0.7rem",
-                    background: "#a855f7",
-                    padding: "2px 8px",
-                    borderRadius: "10px",
-                    verticalAlign: "middle",
-                  }}
-                >
-                  HOST
-                </span>
-              )}
-            </h2>
 
+            {/* Room header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+              <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 600, color: "rgba(255,255,255,0.8)" }}>
+                Now Playing in{" "}
+                <span style={{ color: "#a855f7", fontWeight: 800 }}>{currentRoom}</span>
+                {isHost && (
+                  <span style={{
+                    marginLeft: "8px",
+                    fontSize: "0.65rem",
+                    background: "linear-gradient(135deg, #7c3aed, #a855f7)",
+                    padding: "3px 10px",
+                    borderRadius: "20px",
+                    verticalAlign: "middle",
+                    fontWeight: 700,
+                    letterSpacing: "0.5px",
+                  }}>
+                    HOST
+                  </span>
+                )}
+              </h2>
+
+              {/* ✅ Only host sees Next button — moved to header */}
+              {isHost && (
+                <button
+                  onClick={nextSong}
+                  style={{
+                    padding: "8px 18px",
+                    borderRadius: "20px",
+                    border: "1px solid rgba(168,85,247,0.4)",
+                    background: "rgba(168,85,247,0.15)",
+                    color: "#a855f7",
+                    cursor: "pointer",
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseEnter={e => e.target.style.background = "rgba(168,85,247,0.3)"}
+                  onMouseLeave={e => e.target.style.background = "rgba(168,85,247,0.15)"}
+                >
+                  ⏭ Skip
+                </button>
+              )}
+            </div>
+
+            {/* Player */}
             <div className="player-frame">
               {currentSong ? (
                 !partyStarted ? (
-                  // ✅ Autoplay fix — browser requires user gesture first
-                  <div
-                    style={{
-                      height: "100%",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      background: "#000",
-                      gap: "15px",
-                    }}
-                  >
+                  <div style={{
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: "linear-gradient(135deg, #0d0d1a, #1a0030)",
+                    gap: "16px",
+                  }}>
                     <img
                       src={currentSong.thumbnail}
                       alt=""
-                      style={{ width: "120px", borderRadius: "8px", opacity: 0.7 }}
+                      style={{ width: "100px", borderRadius: "12px", opacity: 0.85, boxShadow: "0 8px 30px rgba(0,0,0,0.6)" }}
                     />
-                    <p style={{ opacity: 0.7 }}>{currentSong.title}</p>
+                    <p style={{ opacity: 0.8, margin: 0, fontSize: "0.95rem", fontWeight: 500 }}>
+                      {currentSong.title}
+                    </p>
                     <button
                       onClick={() => setPartyStarted(true)}
-                      style={{
-                        padding: "12px 30px",
-                        borderRadius: "30px",
-                        border: "none",
-                        background: "#a855f7",
-                        color: "#fff",
-                        fontSize: "1rem",
-                        cursor: "pointer",
-                      }}
+                      className="btn-primary"
+                      style={{ padding: "12px 32px", borderRadius: "30px", fontSize: "1rem" }}
                     >
                       ▶ Start the Party
                     </button>
@@ -196,77 +219,93 @@ function App() {
                     frameBorder="0"
                     allow="autoplay; encrypted-media"
                     allowFullScreen
-                  ></iframe>
+                  />
                 )
               ) : (
-                <div
-                  style={{
-                    height: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background: "#000",
-                  }}
-                >
-                  <p>Queue a song to start the vibe... 🎶</p>
+                <div style={{
+                  height: "100%",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "linear-gradient(135deg, #0d0d1a, #1a0030)",
+                  gap: "12px",
+                }}>
+                  <p style={{ opacity: 0.4, margin: 0, fontSize: "1.1rem" }}>🎶</p>
+                  <p style={{ opacity: 0.4, margin: 0, fontSize: "0.9rem" }}>Queue a song to start the vibe</p>
                 </div>
               )}
             </div>
 
-            {/* ✅ Only host sees Next button */}
-            {isHost && (
-              <button
-                onClick={nextSong}
-                style={{
-                  marginTop: "15px",
-                  padding: "10px 20px",
-                  borderRadius: "8px",
-                  border: "none",
-                  background: "#a855f7",
-                  color: "#fff",
-                  cursor: "pointer",
-                }}
-              >
-                ⏭ Next Song
-              </button>
-            )}
-
+            {/* Search */}
             <SearchSongs roomId={currentRoom} queue={queue} />
           </div>
 
+          {/* Queue Sidebar */}
           <div className="queue-sidebar">
-            <h3 style={{ marginBottom: "20px", paddingLeft: "10px" }}>Up Next</h3>
+            <h3>Up Next</h3>
 
             {queue.length === 0 && (
-              <p style={{ opacity: 0.4, paddingLeft: "10px", fontSize: "0.85rem" }}>
-                Queue is empty — add a song! 🎵
+              <p style={{ opacity: 0.35, fontSize: "0.85rem", textAlign: "center", marginTop: "30px" }}>
+                Queue is empty<br />add a song! 🎵
               </p>
             )}
 
             {queue.map((song, index) => {
               const hasVoted = votedSongs.has(song.videoId);
+              const isPlaying = currentSong?.videoId === song.videoId;
               return (
-                <div key={index} className="song-card">
-                  <img src={song.thumbnail} alt="" className="thumbnail" />
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: "0.9rem", margin: "0 0 5px 0", fontWeight: "bold" }}>
+                <div
+                  key={index}
+                  className="song-card"
+                  style={isPlaying ? { borderColor: "rgba(168,85,247,0.5)", background: "rgba(168,85,247,0.1)" } : {}}
+                >
+                  <div style={{ position: "relative" }}>
+                    <img src={song.thumbnail} alt="" className="thumbnail" />
+                    {isPlaying && (
+                      <div style={{
+                        position: "absolute",
+                        inset: 0,
+                        background: "rgba(168,85,247,0.4)",
+                        borderRadius: "8px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "1.2rem",
+                      }}>▶</div>
+                    )}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{
+                      fontSize: "0.82rem",
+                      margin: "0 0 6px 0",
+                      fontWeight: 600,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      color: isPlaying ? "#a855f7" : "inherit",
+                    }}>
                       {song.title}
                     </p>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontSize: "0.8rem", color: "#ec4899" }}>
+                      <span style={{ fontSize: "0.75rem", color: "#ec4899", fontWeight: 600 }}>
                         🔥 {song.votes}
                       </span>
                       <button
                         onClick={() => voteSong(song.videoId)}
                         disabled={hasVoted}
                         style={{
-                          background: hasVoted ? "rgba(168,85,247,0.2)" : "none",
-                          border: "1px solid #a855f7",
-                          color: hasVoted ? "#888" : "#a855f7",
-                          borderRadius: "4px",
+                          background: hasVoted ? "rgba(168,85,247,0.15)" : "transparent",
+                          border: "1px solid",
+                          borderColor: hasVoted ? "rgba(168,85,247,0.3)" : "rgba(168,85,247,0.6)",
+                          color: hasVoted ? "rgba(168,85,247,0.4)" : "#a855f7",
+                          borderRadius: "6px",
                           cursor: hasVoted ? "not-allowed" : "pointer",
-                          fontSize: "0.7rem",
+                          fontSize: "0.68rem",
                           padding: "3px 8px",
+                          fontWeight: 700,
+                          letterSpacing: "0.3px",
+                          transition: "all 0.2s ease",
                         }}
                       >
                         {hasVoted ? "✓ Voted" : "VOTE"}
