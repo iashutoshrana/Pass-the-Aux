@@ -1,19 +1,19 @@
+const dns = require("dns");
+dns.setServers(["8.8.8.8", "8.8.4.4"]);
+
 require("dotenv").config();
+
 
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
 const axios = require("axios");
+const mongoose = require("mongoose");
 
 const app = express();
 
-// ✅ Allow any origin in dev; lock down in production via env
-app.use(
-  cors({
-    origin: process.env.CLIENT_URL || "*",
-  })
-);
+app.use(cors({ origin: process.env.CLIENT_URL || "*" }));
 
 const server = http.createServer(app);
 
@@ -22,23 +22,75 @@ const io = new Server(server, {
     origin: process.env.CLIENT_URL || "*",
     methods: ["GET", "POST"],
   },
-  transports: ["websocket", "polling"], // ✅ match client
+  transports: ["websocket", "polling"],
 });
 
-// In-memory rooms
+// ✅ MongoDB Connection
+mongoose
+  .connect(process.env.MONGODB_URI, {
+    serverSelectionTimeoutMS: 10000,
+    family: 4, // ✅ Force IPv4 — fixes most India ISP DNS issues
+  })
+  .then(() => console.log("MongoDB connected ✅"))
+  .catch((err) => console.error("MongoDB error ❌", err.message));
+
+// ✅ Room Schema
+const roomSchema = new mongoose.Schema({
+  roomId: { type: String, unique: true },
+  queue: { type: Array, default: [] },
+  currentSong: { type: Object, default: null },
+  hostId: { type: String, default: "" },
+  lastActivity: { type: Date, default: Date.now },
+});
+
+const Room = mongoose.model("Room", roomSchema);
+
+// In-memory rooms (for fast access)
 const rooms = {};
+
+// ✅ Load all rooms from DB into memory on server start
+async function loadRoomsFromDB() {
+  const allRooms = await Room.find({});
+  allRooms.forEach((room) => {
+    rooms[room.roomId] = {
+      queue: room.queue,
+      currentSong: room.currentSong,
+      hostId: room.hostId,
+      lastActivity: room.lastActivity,
+    };
+  });
+  console.log(`Loaded ${allRooms.length} rooms from DB ✅`);
+}
+loadRoomsFromDB();
+
+// ✅ Save room to DB
+async function saveRoom(roomId) {
+  const room = rooms[roomId];
+  if (!room) return;
+  await Room.findOneAndUpdate(
+    { roomId },
+    {
+      queue: room.queue,
+      currentSong: room.currentSong,
+      hostId: room.hostId,
+      lastActivity: room.lastActivity,
+    },
+    { upsert: true, new: true }
+  );
+}
 
 // ✅ Auto-delete inactive rooms after 3 hours
 const ROOM_TTL_MS = 3 * 60 * 60 * 1000;
-setInterval(() => {
+setInterval(async () => {
   const now = Date.now();
   for (const roomId in rooms) {
-    if (now - rooms[roomId].lastActivity > ROOM_TTL_MS) {
+    if (now - new Date(rooms[roomId].lastActivity).getTime() > ROOM_TTL_MS) {
       delete rooms[roomId];
+      await Room.deleteOne({ roomId });
       console.log(`Room ${roomId} expired and removed`);
     }
   }
-}, 10 * 60 * 1000); // check every 10 mins
+}, 10 * 60 * 1000);
 
 // Spotify Token
 let spotifyToken = "";
@@ -128,20 +180,21 @@ app.get("/search", async (req, res) => {
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
-  socket.on("create-room", () => {
+  socket.on("create-room", async () => {
     const roomId = Math.random().toString(36).substring(2, 8);
     rooms[roomId] = {
       queue: [],
       currentSong: null,
-      hostId: socket.id, // ✅ track host
+      hostId: socket.id,
       lastActivity: Date.now(),
     };
     socket.join(roomId);
     socket.emit("room-created", roomId);
+    await saveRoom(roomId);
     console.log(`Room ${roomId} created by ${socket.id}`);
   });
 
-  socket.on("join-room", (roomId) => {
+  socket.on("join-room", async (roomId) => {
     if (!rooms[roomId]) {
       socket.emit("error", "Room not found");
       return;
@@ -149,19 +202,17 @@ io.on("connection", (socket) => {
     socket.join(roomId);
     rooms[roomId].lastActivity = Date.now();
     socket.emit("joined-room", roomId);
-
-    // ✅ Send full current state to late joiners
     socket.emit("room-state", {
       queue: rooms[roomId].queue,
       currentSong: rooms[roomId].currentSong,
     });
+    await saveRoom(roomId);
   });
 
-  socket.on("add-song", ({ roomId, song }) => {
+  socket.on("add-song", async ({ roomId, song }) => {
     const room = rooms[roomId];
     if (!room) return;
 
-    // ✅ Duplicate guard on server side too
     const isDuplicate = room.queue.some((s) => s.videoId === song.videoId);
     if (isDuplicate) return;
 
@@ -170,16 +221,16 @@ io.on("connection", (socket) => {
     room.queue.push(song);
     room.lastActivity = Date.now();
 
-    // ✅ Auto-set currentSong if queue was empty
     if (!room.currentSong) {
       room.currentSong = song;
       io.to(roomId).emit("play-song", song);
     }
 
     io.to(roomId).emit("update-queue", room.queue);
+    await saveRoom(roomId);
   });
 
-  socket.on("vote-song", ({ roomId, videoId, userId }) => {
+  socket.on("vote-song", async ({ roomId, videoId, userId }) => {
     const room = rooms[roomId];
     if (!room) return;
 
@@ -192,16 +243,15 @@ io.on("connection", (socket) => {
     room.lastActivity = Date.now();
 
     io.to(roomId).emit("update-queue", room.queue);
+    await saveRoom(roomId);
   });
 
-  socket.on("next-song", (roomId) => {
+  socket.on("next-song", async (roomId) => {
     const room = rooms[roomId];
     if (!room || room.queue.length === 0) return;
 
-    // ✅ Only host can skip
     if (socket.id !== room.hostId) return;
 
-    // Remove current song from queue
     room.queue.shift();
     room.lastActivity = Date.now();
 
@@ -209,23 +259,25 @@ io.on("connection", (socket) => {
       room.currentSong = null;
       io.to(roomId).emit("update-queue", []);
       io.to(roomId).emit("play-song", null);
+      await saveRoom(roomId);
       return;
     }
 
     room.currentSong = room.queue[0];
     io.to(roomId).emit("update-queue", room.queue);
     io.to(roomId).emit("play-song", room.currentSong);
+    await saveRoom(roomId);
   });
 
-  socket.on("disconnect", () => {
+  socket.on("disconnect", async () => {
     console.log("User disconnected:", socket.id);
-    // If host disconnects, reassign host to next person in room
     for (const roomId in rooms) {
       if (rooms[roomId].hostId === socket.id) {
         const clients = io.sockets.adapter.rooms.get(roomId);
         if (clients && clients.size > 0) {
           const newHost = [...clients][0];
           rooms[roomId].hostId = newHost;
+          await saveRoom(roomId);
           io.to(newHost).emit("promoted-to-host");
           console.log(`Host reassigned to ${newHost} in room ${roomId}`);
         }
