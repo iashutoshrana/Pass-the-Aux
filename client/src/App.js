@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { socket } from "./socket";
+import { socket, onConnectionChange } from "./socket";
 import SearchSongs from "./SearchSongs";
 import "./App.css";
 import QRSection from "./QRSection";
@@ -12,6 +12,7 @@ function App() {
   const [isHost, setIsHost] = useState(false);
   const [votedSongs, setVotedSongs] = useState(new Set());
   const [partyStarted, setPartyStarted] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState({ status: "connected" });
 
   // ✅ Auto-join from QR link
   useEffect(() => {
@@ -28,6 +29,14 @@ function App() {
     }
 
     return () => socket.off("connect");
+  }, []);
+
+  // ✅ Track connection status for reconnect banner
+  useEffect(() => {
+    const unsubscribe = onConnectionChange((state) => {
+      setConnectionStatus(state);
+    });
+    return unsubscribe;
   }, []);
 
   useEffect(() => {
@@ -91,6 +100,34 @@ function App() {
 
   return (
     <div className="app-container">
+      {connectionStatus.status !== "connected" && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1000,
+            textAlign: "center",
+            padding: "10px",
+            fontSize: "0.85rem",
+            fontWeight: 600,
+            background:
+              connectionStatus.status === "failed"
+                ? "rgba(220,38,38,0.9)"
+                : "rgba(234,179,8,0.9)",
+            color: "#fff",
+          }}
+        >
+          {connectionStatus.status === "reconnecting" &&
+            `🔄 Reconnecting to server... (attempt ${connectionStatus.attempt})`}
+          {connectionStatus.status === "disconnected" && "⚠️ Disconnected from server..."}
+          {connectionStatus.status === "error" && "⚠️ Connection error, retrying..."}
+          {connectionStatus.status === "failed" &&
+            "❌ Could not reconnect. Please refresh the page."}
+        </div>
+      )}
+
       <div className="blob blob-1"></div>
       <div className="blob blob-2"></div>
 
