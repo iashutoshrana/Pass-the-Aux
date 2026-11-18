@@ -1,47 +1,73 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { socket } from "./socket";
 
-const SERVER_URL =
-  process.env.REACT_APP_SERVER_URL || "http://localhost:5000";
+const SERVER_URL = process.env.REACT_APP_SERVER_URL || "http://localhost:5000";
+
+const MIN_CHARS = 3;
+const DEBOUNCE_MS = 600;
 
 function SearchSongs({ roomId, queue }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [addedIds, setAddedIds] = useState(new Set());
+  const abortRef = useRef(null);
 
-  const searchSongs = async () => {
-    if (!query.trim()) return;
+  // Clear the "just added" markers once the server sends the updated queue
+  useEffect(() => {
+    setAddedIds(new Set());
+  }, [queue]);
+
+  const runSearch = async (text) => {
+    const q = text.trim();
+    if (q.length < MIN_CHARS) return;
+
+    // cancel any older in-flight request
+    if (abortRef.current) abortRef.current.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setIsSearching(true);
     try {
       const res = await axios.get(`${SERVER_URL}/search`, {
-        headers: {
-          "ngrok-skip-browser-warning": "true", // ✅ bypasses ngrok interstitial
-        },
-        params: { q: query },
+        headers: { "ngrok-skip-browser-warning": "true" },
+        params: { q },
+        signal: controller.signal,
       });
-      const validResults = res.data.filter((song) => song && song.videoId);
-      setResults(validResults);
+      setResults(res.data.filter((song) => song && song.videoId).slice(0, 4));
+      setHasSearched(true);
+      setIsSearching(false);
     } catch (err) {
+      if (axios.isCancel(err)) return; // newer search replaced this one
       console.error("Search error:", err.message);
       setResults([]);
-    } finally {
+      setHasSearched(true);
       setIsSearching(false);
     }
   };
 
-  const addSong = (song) => {
-    if (!song.videoId) {
-      alert("Song not playable ❌");
+  // Search automatically after the user pauses typing
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < MIN_CHARS) {
+      if (abortRef.current) abortRef.current.abort();
+      setIsSearching(false);
+      if (q.length === 0) {
+        setResults([]);
+        setHasSearched(false);
+      }
       return;
     }
+    const timer = setTimeout(() => runSearch(q), DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [query]);
 
+  const addSong = (song) => {
+    if (!song.videoId) return;
     const alreadyInQueue = queue?.some((s) => s.videoId === song.videoId);
-    if (alreadyInQueue || addedIds.has(song.videoId)) {
-      alert("Song is already in the queue!");
-      return;
-    }
+    if (alreadyInQueue || addedIds.has(song.videoId)) return;
 
     socket.emit("add-song", { roomId, song });
     setAddedIds((prev) => new Set(prev).add(song.videoId));
@@ -59,28 +85,35 @@ function SearchSongs({ roomId, queue }) {
           placeholder="Search for songs or artists..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && searchSongs()}
+          onKeyDown={(e) => e.key === "Enter" && runSearch(query)}
         />
-        <button className="btn-primary" onClick={searchSongs} disabled={isSearching}>
+        <button
+          className="btn-primary"
+          onClick={() => runSearch(query)}
+          disabled={isSearching}
+        >
           {isSearching ? "Searching..." : "SEARCH"}
         </button>
       </div>
 
       <div className="results-grid">
-        {results.length === 0 && !isSearching && (
+        {hasSearched && results.length === 0 && !isSearching && (
           <p style={{ opacity: 0.5, marginTop: "20px" }}>No songs found...</p>
         )}
 
-        {results.map((song, index) => {
+        {results.map((song) => {
           const inQueue =
             queue?.some((s) => s.videoId === song.videoId) ||
             addedIds.has(song.videoId);
 
           return (
-            <div key={index} className="result-card">
+            <div key={song.videoId} className="result-card">
               <div className="result-thumb-container">
                 <img
-                  src={song.thumbnail || "https://via.placeholder.com/300x200?text=No+Image"}
+                  src={
+                    song.thumbnail ||
+                    "https://via.placeholder.com/300x200?text=No+Image"
+                  }
                   className="result-thumb"
                   alt="thumbnail"
                 />
@@ -89,7 +122,10 @@ function SearchSongs({ roomId, queue }) {
                     className="add-btn-small"
                     onClick={() => addSong(song)}
                     disabled={inQueue}
-                    style={{ opacity: inQueue ? 0.4 : 1, cursor: inQueue ? "not-allowed" : "pointer" }}
+                    style={{
+                      opacity: inQueue ? 0.4 : 1,
+                      cursor: inQueue ? "not-allowed" : "pointer",
+                    }}
                   >
                     {inQueue ? "✓ Added" : "+ Add to Queue"}
                   </button>
@@ -97,7 +133,9 @@ function SearchSongs({ roomId, queue }) {
               </div>
               <div className="result-info">
                 <p className="result-title">{song.title}</p>
-                <p style={{ fontSize: "0.8rem", opacity: 0.6 }}>{song.artist}</p>
+                <p style={{ fontSize: "0.8rem", opacity: 0.6 }}>
+                  {song.artist}
+                </p>
               </div>
             </div>
           );

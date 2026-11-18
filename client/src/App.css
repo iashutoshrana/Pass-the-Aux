@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap");
 
 :root {
   --primary: #a855f7;
@@ -23,7 +23,7 @@
 body {
   margin: 0;
   background-color: var(--bg-dark);
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   color: var(--text-primary);
   overflow-x: hidden;
 }
@@ -64,8 +64,12 @@ body {
 }
 
 @keyframes float {
-  from { transform: translate(0, 0) scale(1) rotate(0deg); }
-  to { transform: translate(80px, 40px) scale(1.15) rotate(5deg); }
+  from {
+    transform: translate(0, 0) scale(1) rotate(0deg);
+  }
+  to {
+    transform: translate(80px, 40px) scale(1.15) rotate(5deg);
+  }
 }
 
 /* --- TITLE --- */
@@ -88,7 +92,9 @@ body {
   border: 1px solid var(--glass-border);
   border-radius: 20px;
   padding: 32px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 /* --- BUTTONS --- */
@@ -110,11 +116,18 @@ body {
 }
 
 .btn-primary::before {
-  content: '';
+  content: "";
   position: absolute;
-  top: 0; left: -100%;
-  width: 100%; height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.15),
+    transparent
+  );
   transition: left 0.5s ease;
 }
 
@@ -132,9 +145,15 @@ body {
 }
 
 @keyframes gradientShift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 /* --- ROOM LAYOUT --- */
@@ -161,7 +180,9 @@ body {
   border-radius: 16px;
   overflow: hidden;
   border: 1px solid var(--glass-border);
-  box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(168,85,247,0.1);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(168, 85, 247, 0.1);
   background: #000;
 }
 
@@ -193,7 +214,7 @@ body {
 .song-card {
   display: flex;
   gap: 12px;
-  background: rgba(255,255,255,0.03);
+  background: rgba(255, 255, 255, 0.03);
   padding: 10px;
   border-radius: 12px;
   margin-bottom: 8px;
@@ -217,8 +238,12 @@ body {
 }
 
 /* --- SCROLLBAR --- */
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
 ::-webkit-scrollbar-thumb {
   background: rgba(168, 85, 247, 0.4);
   border-radius: 10px;
@@ -251,7 +276,7 @@ body {
   font-size: 0.95rem;
   outline: none;
   transition: all 0.3s ease;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
 }
 
 .input-glow::placeholder {
@@ -276,7 +301,7 @@ body {
 
 .result-card {
   position: relative;
-  background: rgba(255,255,255,0.04);
+  background: rgba(255, 255, 255, 0.04);
   border-radius: 14px;
   overflow: hidden;
   transition: all 0.3s ease;
@@ -288,7 +313,9 @@ body {
   transform: translateY(-4px);
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(168, 85, 247, 0.4);
-  box-shadow: 0 12px 30px rgba(0,0,0,0.4), 0 0 0 1px rgba(168,85,247,0.2);
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(168, 85, 247, 0.2);
 }
 
 .result-thumb-container {
@@ -307,7 +334,11 @@ body {
 .result-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 100%);
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.9) 0%,
+    rgba(0, 0, 0, 0.4) 100%
+  );
   display: flex;
   align-items: center;
   justify-content: center;
@@ -336,7 +367,7 @@ body {
 }
 
 .add-btn-small {
-  background: rgba(255,255,255,0.95);
+  background: rgba(255, 255, 255, 0.95);
   color: #1a0030;
   border: none;
   padding: 7px 14px;
@@ -390,5 +421,101 @@ body {
 
   .glass-card {
     padding: 20px;
+  }
+}
+/* ---------- Mobile layout ---------- */
+
+/* never let the background blobs cause sideways scrolling */
+html,
+body {
+  overflow-x: hidden;
+}
+
+/* left column becomes a flex column so we can reorder its parts */
+.main-stage {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  /* one column instead of two */
+  .room-layout {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+    padding: 0 12px !important;
+  }
+  .main-stage,
+  .queue-sidebar {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
+  }
+
+  /* order on phones: header, player, search, then the queue below */
+  .room-header {
+    order: 1;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .player-frame {
+    order: 2;
+  }
+  .search-container {
+    order: 3;
+    margin-top: 16px;
+  }
+
+  /* player keeps a 16:9 shape instead of a fixed desktop height */
+  .player-frame {
+    height: auto !important;
+    aspect-ratio: 16 / 9;
+    min-height: 0 !important;
+  }
+
+  /* smaller title */
+  .title {
+    font-size: 2rem !important;
+    margin: 16px 0 !important;
+  }
+
+  /* QR card centred in its column */
+  .qr-section {
+    margin: 0 auto 16px !important;
+  }
+}
+
+@media (max-width: 600px) {
+  /* search box and button stack */
+  .search-input-group {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .search-input-group .btn-primary {
+    width: 100%;
+  }
+
+  /* 2 results per row, scrollable so they don't push the page down */
+  .results-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+    max-height: 420px;
+    overflow-y: auto;
+  }
+
+  /* 16px inputs stop iPhones from zooming in when you tap the box */
+  .input-glow {
+    font-size: 16px !important;
+  }
+
+  /* easier to tap */
+  .btn-primary,
+  .add-btn-small {
+    min-height: 44px;
+  }
+  .song-card button {
+    padding: 8px 12px !important;
   }
 }
