@@ -8,6 +8,25 @@ import QRSection from "./QRSection";
 // stamp the moment we received the song so the player knows how old `position` is
 const receive = (song) => (song ? { ...song, receivedAt: Date.now() } : null);
 
+// stable id for this browser, so a refresh doesn't give you extra votes
+function getClientId() {
+  try {
+    let id = localStorage.getItem("aux-client-id");
+    if (!id) {
+      id =
+        (window.crypto &&
+          window.crypto.randomUUID &&
+          window.crypto.randomUUID()) ||
+        Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem("aux-client-id", id);
+    }
+    return id;
+  } catch {
+    return Math.random().toString(36).slice(2) + Date.now().toString(36);
+  }
+}
+const clientId = getClientId();
+
 function App() {
   const [roomId, setRoomId] = useState("");
   const [currentRoom, setCurrentRoom] = useState("");
@@ -105,13 +124,27 @@ function App() {
 
   const voteSong = (videoId) => {
     if (votedSongs.has(videoId)) return;
-    socket.emit("vote-song", { roomId: currentRoom, videoId });
+    socket.emit("vote-song", { roomId: currentRoom, videoId, clientId });
     setVotedSongs((prev) => new Set(prev).add(videoId));
   };
 
   const nextSong = () => {
     if (!isHost) return;
     socket.emit("next-song", currentRoom);
+  };
+
+  const leaveParty = () => {
+    socket.emit("leave-room", currentRoom);
+    // drop ?room=... from the address so a refresh doesn't rejoin
+    window.history.replaceState({}, "", window.location.pathname);
+    setCurrentRoom("");
+    setRoomId("");
+    setQueue([]);
+    setCurrentSong(null);
+    setIsHost(false);
+    setPartyStarted(false);
+    setVotedSongs(new Set());
+    setRoomError("");
   };
 
   return (
@@ -230,7 +263,6 @@ function App() {
 
             {/* Room header */}
             <div
-              className="room-header"
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -268,31 +300,51 @@ function App() {
                 )}
               </h2>
 
-              {/* Only host sees Skip (server also checks) */}
-              {isHost && (
+              <div
+                style={{ display: "flex", gap: "8px", alignItems: "center" }}
+              >
+                {/* Only host sees Skip (server also checks) */}
+                {isHost && (
+                  <button
+                    onClick={nextSong}
+                    style={{
+                      padding: "8px 18px",
+                      borderRadius: "20px",
+                      border: "1px solid rgba(168,85,247,0.4)",
+                      background: "rgba(168,85,247,0.15)",
+                      color: "#a855f7",
+                      cursor: "pointer",
+                      fontSize: "0.85rem",
+                      fontWeight: 600,
+                      transition: "all 0.2s ease",
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.target.style.background = "rgba(168,85,247,0.3)")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.target.style.background = "rgba(168,85,247,0.15)")
+                    }
+                  >
+                    ⏭ Skip
+                  </button>
+                )}
                 <button
-                  onClick={nextSong}
+                  onClick={leaveParty}
+                  title="Leave this party"
                   style={{
-                    padding: "8px 18px",
+                    padding: "8px 14px",
                     borderRadius: "20px",
-                    border: "1px solid rgba(168,85,247,0.4)",
-                    background: "rgba(168,85,247,0.15)",
-                    color: "#a855f7",
+                    border: "1px solid rgba(255,255,255,0.2)",
+                    background: "transparent",
+                    color: "rgba(255,255,255,0.6)",
                     cursor: "pointer",
-                    fontSize: "0.85rem",
+                    fontSize: "0.8rem",
                     fontWeight: 600,
-                    transition: "all 0.2s ease",
                   }}
-                  onMouseEnter={(e) =>
-                    (e.target.style.background = "rgba(168,85,247,0.3)")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.target.style.background = "rgba(168,85,247,0.15)")
-                  }
                 >
-                  ⏭ Skip
+                  Leave
                 </button>
-              )}
+              </div>
             </div>
 
             {/* Player */}
@@ -367,6 +419,26 @@ function App() {
                 </div>
               )}
             </div>
+
+            {/* What's playing right now */}
+            {currentSong && (
+              <div style={{ margin: "12px 4px 0" }}>
+                <div
+                  style={{
+                    fontSize: "1rem",
+                    fontWeight: 700,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  🎵 {currentSong.title}
+                </div>
+                <div style={{ fontSize: "0.85rem", opacity: 0.6 }}>
+                  {currentSong.artist}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* RIGHT COLUMN: QR on top, then the queue */}
@@ -391,7 +463,9 @@ function App() {
             )}
 
             {queue.map((song) => {
-              const hasVoted = votedSongs.has(song.videoId);
+              const hasVoted =
+                votedSongs.has(song.videoId) ||
+                !!song.voters?.includes(clientId);
               const isPlaying = currentSong?.videoId === song.videoId;
               return (
                 <div

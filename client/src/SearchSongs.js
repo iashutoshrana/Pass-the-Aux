@@ -6,19 +6,46 @@ const SERVER_URL = process.env.REACT_APP_SERVER_URL || "http://localhost:5000";
 
 const MIN_CHARS = 3;
 const DEBOUNCE_MS = 600;
+const MAX_RESULTS = 4;
 
 function SearchSongs({ roomId, queue }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const [addedIds, setAddedIds] = useState(new Set());
+  const [searchFailed, setSearchFailed] = useState(false);
+  const [addedIds, setAddedIds] = useState(new Set()); // spotify ids being added
+  const [notice, setNotice] = useState("");
   const abortRef = useRef(null);
+  const noticeTimer = useRef(null);
+
+  const showNotice = (msg) => {
+    setNotice(msg);
+    clearTimeout(noticeTimer.current);
+    noticeTimer.current = setTimeout(() => setNotice(""), 3000);
+  };
 
   // Clear the "just added" markers once the server sends the updated queue
   useEffect(() => {
     setAddedIds(new Set());
   }, [queue]);
+
+  // The server tells us when a song could not be added
+  useEffect(() => {
+    const onAddError = ({ spotifyId, message }) => {
+      setAddedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(spotifyId);
+        return next;
+      });
+      showNotice(message);
+    };
+    socket.on("add-error", onAddError);
+    return () => {
+      socket.off("add-error", onAddError);
+      clearTimeout(noticeTimer.current);
+    };
+  }, []);
 
   const runSearch = async (text) => {
     const q = text.trim();
@@ -30,25 +57,29 @@ function SearchSongs({ roomId, queue }) {
     abortRef.current = controller;
 
     setIsSearching(true);
+    setSearchFailed(false);
     try {
       const res = await axios.get(`${SERVER_URL}/search`, {
         headers: { "ngrok-skip-browser-warning": "true" },
         params: { q },
         signal: controller.signal,
       });
-      setResults(res.data.filter((song) => song && song.videoId).slice(0, 4));
+      setResults(
+        res.data.filter((song) => song && song.spotifyId).slice(0, MAX_RESULTS),
+      );
       setHasSearched(true);
       setIsSearching(false);
     } catch (err) {
       if (axios.isCancel(err)) return; // newer search replaced this one
       console.error("Search error:", err.message);
       setResults([]);
+      setSearchFailed(true);
       setHasSearched(true);
       setIsSearching(false);
     }
   };
 
-  // Search automatically after the user pauses typing
+  // Search automatically after the user pauses typing (Spotify only: free)
   useEffect(() => {
     const q = query.trim();
     if (q.length < MIN_CHARS) {
@@ -57,20 +88,24 @@ function SearchSongs({ roomId, queue }) {
       if (q.length === 0) {
         setResults([]);
         setHasSearched(false);
+        setSearchFailed(false);
       }
       return;
     }
     const timer = setTimeout(() => runSearch(q), DEBOUNCE_MS);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
-  const addSong = (song) => {
-    if (!song.videoId) return;
-    const alreadyInQueue = queue?.some((s) => s.videoId === song.videoId);
-    if (alreadyInQueue || addedIds.has(song.videoId)) return;
+  const isInQueue = (song) =>
+    queue?.some((s) => s.spotifyId === song.spotifyId) ||
+    addedIds.has(song.spotifyId);
 
-    socket.emit("add-song", { roomId, song });
-    setAddedIds((prev) => new Set(prev).add(song.videoId));
+  const addSong = (song) => {
+    if (isInQueue(song)) return;
+    // send only the id: the server looks up the real details itself
+    socket.emit("add-song", { roomId, spotifyId: song.spotifyId });
+    setAddedIds((prev) => new Set(prev).add(song.spotifyId));
   };
 
   return (
@@ -96,18 +131,37 @@ function SearchSongs({ roomId, queue }) {
         </button>
       </div>
 
+      {notice && (
+        <p
+          style={{ color: "#fbbf24", fontSize: "0.85rem", margin: "12px 0 0" }}
+        >
+          ⚠️ {notice}
+        </p>
+      )}
+
       <div className="results-grid">
-        {hasSearched && results.length === 0 && !isSearching && (
-          <p style={{ opacity: 0.5, marginTop: "20px" }}>No songs found...</p>
+        {isSearching && results.length === 0 && (
+          <p style={{ opacity: 0.5, marginTop: "20px" }}>Searching...</p>
         )}
 
+        {searchFailed && !isSearching && (
+          <p style={{ color: "#f87171", marginTop: "20px" }}>
+            Search failed, please try again.
+          </p>
+        )}
+
+        {hasSearched &&
+          !searchFailed &&
+          results.length === 0 &&
+          !isSearching && (
+            <p style={{ opacity: 0.5, marginTop: "20px" }}>No songs found...</p>
+          )}
+
         {results.map((song) => {
-          const inQueue =
-            queue?.some((s) => s.videoId === song.videoId) ||
-            addedIds.has(song.videoId);
+          const inQueue = isInQueue(song);
 
           return (
-            <div key={song.videoId} className="result-card">
+            <div key={song.spotifyId} className="result-card">
               <div className="result-thumb-container">
                 <img
                   src={
