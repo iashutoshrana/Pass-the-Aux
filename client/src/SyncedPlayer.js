@@ -43,8 +43,13 @@ export default function SyncedPlayer({ song, roomId }) {
     let destroyed = false;
 
     loadYT().then((YT) => {
-      if (destroyed) return;
-      playerRef.current = new YT.Player(holderRef.current, {
+      if (destroyed || !holderRef.current) return;
+      // YouTube replaces the element it is given with an iframe. Give it a
+      // throwaway child so React's own wrapper div is never swapped out
+      // (that swap caused the "removeChild" crash when the player unmounted).
+      const mount = document.createElement("div");
+      holderRef.current.appendChild(mount);
+      playerRef.current = new YT.Player(mount, {
         width: "100%",
         height: "100%",
         videoId: songRef.current.videoId,

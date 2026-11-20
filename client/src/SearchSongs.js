@@ -111,7 +111,7 @@ function SearchSongs({ roomId, queue }) {
   return (
     <div className="search-container">
       <h3 style={{ marginBottom: "15px", fontSize: "1.2rem", opacity: 0.8 }}>
-        Find Your Vibe 🔍
+        Find Your Vibe
       </h3>
 
       <div className="search-input-group">

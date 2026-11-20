@@ -35,6 +35,7 @@ function App() {
   const [isHost, setIsHost] = useState(false);
   const [votedSongs, setVotedSongs] = useState(new Set());
   const [partyStarted, setPartyStarted] = useState(false);
+  const [hasPlayed, setHasPlayed] = useState(false); // a song has played in this room
   const [roomError, setRoomError] = useState("");
   const [connectionStatus, setConnectionStatus] = useState({
     status: "connected",
@@ -44,6 +45,11 @@ function App() {
   useEffect(() => {
     roomRef.current = currentRoom;
   }, [currentRoom]);
+
+  // once any song has played, an empty player means "the party ended"
+  useEffect(() => {
+    if (currentSong) setHasPlayed(true);
+  }, [currentSong]);
 
   // Auto-join from QR link
   useEffect(() => {
@@ -143,6 +149,7 @@ function App() {
     setCurrentSong(null);
     setIsHost(false);
     setPartyStarted(false);
+    setHasPlayed(false);
     setVotedSongs(new Set());
     setRoomError("");
   };
@@ -410,12 +417,79 @@ function App() {
                     gap: "12px",
                   }}
                 >
-                  <p style={{ opacity: 0.4, margin: 0, fontSize: "1.1rem" }}>
-                    🎶
-                  </p>
-                  <p style={{ opacity: 0.4, margin: 0, fontSize: "0.9rem" }}>
-                    Queue a song to start the vibe
-                  </p>
+                  {hasPlayed ? (
+                    <>
+                      <div style={{ fontSize: "3.5rem", lineHeight: 1 }}>
+                        🎉
+                      </div>
+                      <h2
+                        style={{
+                          margin: 0,
+                          fontSize: "2rem",
+                          fontWeight: 800,
+                          background:
+                            "linear-gradient(135deg, #a855f7, #ec4899)",
+                          WebkitBackgroundClip: "text",
+                          WebkitTextFillColor: "transparent",
+                        }}
+                      >
+                        Party ends here
+                      </h2>
+                      <p style={{ margin: 0, opacity: 0.7, fontSize: "1rem" }}>
+                        That was the last song. Thanks for the vibes!
+                      </p>
+                      <button
+                        className="btn-primary"
+                        style={{
+                          marginTop: "8px",
+                          padding: "10px 26px",
+                          borderRadius: "30px",
+                        }}
+                        onClick={() => {
+                          const el = document.querySelector(
+                            ".search-container .input-glow",
+                          );
+                          if (el) {
+                            el.scrollIntoView({
+                              behavior: "smooth",
+                              block: "center",
+                            });
+                            el.focus();
+                          }
+                        }}
+                      >
+                        🎵 Add more songs
+                      </button>
+                      <button
+                        onClick={leaveParty}
+                        style={{
+                          padding: "9px 26px",
+                          borderRadius: "30px",
+                          border: "1px solid rgba(255,255,255,0.25)",
+                          background: "transparent",
+                          color: "rgba(255,255,255,0.75)",
+                          cursor: "pointer",
+                          fontSize: "0.9rem",
+                          fontWeight: 600,
+                        }}
+                      >
+                        🚪 Exit party
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <p
+                        style={{ opacity: 0.4, margin: 0, fontSize: "1.1rem" }}
+                      >
+                        🎶
+                      </p>
+                      <p
+                        style={{ opacity: 0.4, margin: 0, fontSize: "0.9rem" }}
+                      >
+                        Queue a song to start the vibe
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
             </div>
