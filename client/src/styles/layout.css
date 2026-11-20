@@ -1,0 +1,32 @@
+/* Room screen: two columns (stage + sidebar) and the video frame. */
+
+.room-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 20px;
+  max-width: 1300px;
+  margin: 0 auto;
+  align-items: start;
+}
+
+/* left column: a flex column so its parts can be reordered on phones */
+.main-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* --- PLAYER FRAME --- */
+.player-frame {
+  width: 100%;
+  aspect-ratio: 16/9;
+  max-height: 420px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(168, 85, 247, 0.1);
+  background: #000;
+}

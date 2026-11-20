@@ -1,0 +1,125 @@
+/* Phone and tablet layout. Must be imported LAST so it can override the rest.
+   The order of the four blocks below matters, so keep it as it is. */
+
+/* --- MOBILE RESPONSIVE --- */
+@media (max-width: 900px) {
+  .room-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .queue-sidebar {
+    position: static;
+    max-height: 300px;
+  }
+
+  .player-frame {
+    max-height: 260px;
+  }
+
+  .title {
+    font-size: 2rem;
+  }
+
+  .results-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+}
+
+@media (max-width: 500px) {
+  .app-container {
+    padding: 16px 12px;
+  }
+
+  .title {
+    font-size: 1.6rem;
+    margin-bottom: 20px;
+  }
+
+  .glass-card {
+    padding: 20px;
+  }
+}
+
+/* ---------- Mobile layout ---------- */
+@media (max-width: 900px) {
+  /* one column instead of two */
+  .room-layout {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+    padding: 0 12px !important;
+  }
+  .main-stage,
+  .queue-sidebar {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
+  }
+
+  /* order on phones: header, player, search, then the queue below */
+  .room-header {
+    order: 1;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .player-frame {
+    order: 2;
+  }
+  .search-container {
+    order: 3;
+    margin-top: 16px;
+  }
+
+  /* player keeps a 16:9 shape instead of a fixed desktop height */
+  .player-frame {
+    height: auto !important;
+    aspect-ratio: 16 / 9;
+    min-height: 0 !important;
+  }
+
+  /* smaller title */
+  .title {
+    font-size: 2rem !important;
+    margin: 16px 0 !important;
+  }
+
+  /* QR card centred in its column */
+  .qr-section {
+    margin: 0 auto 16px !important;
+  }
+}
+
+@media (max-width: 600px) {
+  /* search box and button stack */
+  .search-input-group {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .search-input-group .btn-primary {
+    width: 100%;
+  }
+
+  /* 2 results per row, scrollable so they don't push the page down */
+  .results-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+    max-height: 420px;
+    overflow-y: auto;
+  }
+
+  /* 16px inputs stop iPhones from zooming in when you tap the box */
+  .input-glow {
+    font-size: 16px !important;
+  }
+
+  /* easier to tap */
+  .btn-primary,
+  .btn-exit,
+  .add-btn-small {
+    min-height: 44px;
+  }
+  .song-card button {
+    padding: 8px 12px !important;
+  }
+}

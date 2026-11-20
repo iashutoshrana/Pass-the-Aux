@@ -33,20 +33,8 @@ export default function PartyEnded({ onExit }) {
       >
         🎵 Add more songs
       </button>
-      <button
-        onClick={onExit}
-        style={{
-          padding: "9px 26px",
-          borderRadius: "30px",
-          border: "1px solid rgba(255,255,255,0.25)",
-          background: "transparent",
-          color: "rgba(255,255,255,0.75)",
-          cursor: "pointer",
-          fontSize: "0.9rem",
-          fontWeight: 600,
-        }}
-      >
-        🚪 Exit party
+      <button className="btn-exit" onClick={onExit}>
+        Exit party
       </button>
     </>
   );

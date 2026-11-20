@@ -1,0 +1,66 @@
+/* Page basics: reset, body, app wrapper, title, glass card, scrollbar. */
+
+* {
+  box-sizing: border-box;
+}
+
+/* never let the background blobs cause sideways scrolling */
+html {
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg-dark);
+  font-family: "Inter", sans-serif;
+  color: var(--text-primary);
+  overflow-x: hidden;
+}
+
+.app-container {
+  min-height: 100vh;
+  padding: 24px 20px;
+  position: relative;
+  z-index: 1;
+}
+
+/* --- TITLE --- */
+.title {
+  font-size: 2.8rem;
+  font-weight: 900;
+  text-align: center;
+  background: linear-gradient(135deg, #fff 0%, #d8b4fe 50%, #a855f7 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin: 0 0 32px 0;
+  letter-spacing: -1px;
+}
+
+/* --- GLASS CARD --- */
+.glass-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 32px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* --- SCROLLBAR --- */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(168, 85, 247, 0.4);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(168, 85, 247, 0.7);
+}

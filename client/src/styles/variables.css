@@ -1,0 +1,16 @@
+/* Colours and shared values. Change the theme here. */
+:root {
+  --primary: #a855f7;
+  --primary-dark: #7c3aed;
+  --secondary: #6366f1;
+  --accent: #ec4899;
+  --bg-dark: #070711;
+  --bg-card: rgba(255, 255, 255, 0.04);
+  --bg-card-hover: rgba(255, 255, 255, 0.08);
+  --glass: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-hover: rgba(168, 85, 247, 0.4);
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.6);
+  --text-muted: rgba(255, 255, 255, 0.3);
+}

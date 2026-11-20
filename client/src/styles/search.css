@@ -1,0 +1,134 @@
+/* "Find Your Vibe": search box and result cards. */
+
+.search-container {
+  padding: 20px;
+  background: var(--bg-card);
+  border-radius: 16px;
+  border: 1px solid var(--glass-border);
+}
+
+.search-input-group {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.input-glow {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--glass-border);
+  padding: 12px 18px;
+  border-radius: 12px;
+  color: white;
+  font-size: 0.95rem;
+  outline: none;
+  transition: all 0.3s ease;
+  font-family: "Inter", sans-serif;
+}
+
+.input-glow::placeholder {
+  color: var(--text-muted);
+}
+
+.input-glow:focus {
+  border-color: rgba(168, 85, 247, 0.6);
+  background: rgba(168, 85, 247, 0.05);
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1);
+}
+
+/* --- RESULTS GRID --- */
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.result-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 14px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  border: 1px solid var(--glass-border);
+  cursor: pointer;
+}
+
+.result-card:hover {
+  transform: translateY(-4px);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(168, 85, 247, 0.4);
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(168, 85, 247, 0.2);
+}
+
+.result-thumb-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16/9;
+}
+
+.result-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.result-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.9) 0%,
+    rgba(0, 0, 0, 0.4) 100%
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.result-card:hover .result-overlay {
+  opacity: 1;
+}
+
+.result-info {
+  padding: 10px 12px;
+}
+
+.result-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+
+.add-btn-small {
+  background: rgba(255, 255, 255, 0.95);
+  color: #1a0030;
+  border: none;
+  padding: 7px 14px;
+  border-radius: 20px;
+  font-weight: 800;
+  font-size: 0.72rem;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.2s ease;
+}
+
+.add-btn-small:hover {
+  background: #fff;
+  transform: scale(1.05);
+}

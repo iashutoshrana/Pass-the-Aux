@@ -1,0 +1,37 @@
+/* Animated glowing blobs behind the page. */
+
+.blob {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(100px);
+  z-index: -1;
+  opacity: 0.25;
+  animation: float 25s infinite alternate;
+  pointer-events: none;
+}
+
+.blob-1 {
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, #7c3aed, #a855f7);
+  top: -200px;
+  left: -150px;
+}
+
+.blob-2 {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, #ec4899, #f43f5e);
+  bottom: -100px;
+  right: -100px;
+  animation-delay: -8s;
+}
+
+@keyframes float {
+  from {
+    transform: translate(0, 0) scale(1) rotate(0deg);
+  }
+  to {
+    transform: translate(80px, 40px) scale(1.15) rotate(5deg);
+  }
+}

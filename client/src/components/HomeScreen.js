@@ -16,7 +16,7 @@ export default function HomeScreen({
         style={{ width: "100%", fontSize: "1rem", padding: "16px" }}
         onClick={onCreate}
       >
-        🚀 Start a New Party
+        Start a New Party
       </button>
 
       <div
@@ -28,13 +28,21 @@ export default function HomeScreen({
         }}
       >
         <div
-          style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.1)" }}
+          style={{
+            flex: 1,
+            height: "1px",
+            background: "rgba(255,255,255,0.1)",
+          }}
         />
         <span style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.85rem" }}>
           OR
         </span>
         <div
-          style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.1)" }}
+          style={{
+            flex: 1,
+            height: "1px",
+            background: "rgba(255,255,255,0.1)",
+          }}
         />
       </div>
 

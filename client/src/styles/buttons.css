@@ -1,0 +1,86 @@
+/* The purple-pink primary button and its shine animation. */
+
+.btn-primary {
+  background: linear-gradient(135deg, #7c3aed, #a855f7, #ec4899);
+  background-size: 200% 200%;
+  animation: gradientShift 4s ease infinite;
+  border: none;
+  color: white;
+  padding: 14px 28px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.15),
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+.btn-primary:hover::before {
+  left: 100%;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(168, 85, 247, 0.5);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* --- EXIT PARTY BUTTON: gradient outline, fills in on hover --- */
+.btn-exit {
+  padding: 11px 34px;
+  border-radius: 30px;
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(#14091f, #14091f) padding-box,
+    linear-gradient(135deg, #a855f7, #ec4899) border-box;
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.btn-exit:hover {
+  background: linear-gradient(135deg, #7c3aed, #ec4899) border-box;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(236, 72, 153, 0.4);
+}
+
+.btn-exit:active {
+  transform: translateY(0);
+}
