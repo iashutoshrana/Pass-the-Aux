@@ -4,8 +4,8 @@ import { socket } from "./socket";
 
 const SERVER_URL = process.env.REACT_APP_SERVER_URL || "http://localhost:5000";
 
-const MIN_CHARS = 3;
-const DEBOUNCE_MS = 600;
+const MIN_CHARS = 1; // start searching from the first character
+const DEBOUNCE_MS = 300;
 const MAX_RESULTS = 4;
 
 function SearchSongs({ roomId, queue }) {
@@ -18,6 +18,8 @@ function SearchSongs({ roomId, queue }) {
   const [notice, setNotice] = useState("");
   const abortRef = useRef(null);
   const noticeTimer = useRef(null);
+  const debounceRef = useRef(null);
+  const lastQueryRef = useRef(""); // last query we actually searched
 
   const showNotice = (msg) => {
     setNotice(msg);
@@ -47,9 +49,21 @@ function SearchSongs({ roomId, queue }) {
     };
   }, []);
 
+  // Clean up timers and in-flight requests when the component unmounts
+  useEffect(() => {
+    return () => {
+      clearTimeout(debounceRef.current);
+      if (abortRef.current) abortRef.current.abort();
+    };
+  }, []);
+
   const runSearch = async (text) => {
     const q = text.trim();
     if (q.length < MIN_CHARS) return;
+    if (q === lastQueryRef.current) return; // same query, skip
+
+    clearTimeout(debounceRef.current); // cancel any pending debounced search
+    lastQueryRef.current = q;
 
     // cancel any older in-flight request
     if (abortRef.current) abortRef.current.abort();
@@ -72,6 +86,7 @@ function SearchSongs({ roomId, queue }) {
     } catch (err) {
       if (axios.isCancel(err)) return; // newer search replaced this one
       console.error("Search error:", err.message);
+      lastQueryRef.current = ""; // allow retrying the same query after a failure
       setResults([]);
       setSearchFailed(true);
       setHasSearched(true);
@@ -79,21 +94,25 @@ function SearchSongs({ roomId, queue }) {
     }
   };
 
-  // Search automatically after the user pauses typing (Spotify only: free)
+  // Search automatically from the first character, once the user pauses typing
   useEffect(() => {
     const q = query.trim();
+
+    // empty input: cancel everything and reset
     if (q.length < MIN_CHARS) {
+      clearTimeout(debounceRef.current);
       if (abortRef.current) abortRef.current.abort();
+      lastQueryRef.current = "";
       setIsSearching(false);
-      if (q.length === 0) {
-        setResults([]);
-        setHasSearched(false);
-        setSearchFailed(false);
-      }
+      setResults([]);
+      setHasSearched(false);
+      setSearchFailed(false);
       return;
     }
-    const timer = setTimeout(() => runSearch(q), DEBOUNCE_MS);
-    return () => clearTimeout(timer);
+
+    // 1+ characters: search after the user pauses
+    debounceRef.current = setTimeout(() => runSearch(q), DEBOUNCE_MS);
+    return () => clearTimeout(debounceRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
