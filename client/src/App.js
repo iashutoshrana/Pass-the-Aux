@@ -16,7 +16,10 @@ function App() {
 
   return (
     <div className="app-container">
-      <ConnectionBanner status={connection.status} attempt={connection.attempt} />
+      <ConnectionBanner
+        status={connection.status}
+        attempt={connection.attempt}
+      />
 
       <div className="blob blob-1"></div>
       <div className="blob blob-2"></div>
@@ -44,6 +47,12 @@ function App() {
               isHost={party.isHost}
               onSkip={party.nextSong}
               onLeave={party.leaveParty}
+              canVoteSkip={!!party.currentSong}
+              skipVotes={party.skipState.votes}
+              skipNeeded={party.skipState.needed}
+              hasVotedSkip={party.hasVotedSkip}
+              onVoteSkip={party.voteSkip}
+              participants={party.skipState.participants}
             />
 
             <PlayerArea

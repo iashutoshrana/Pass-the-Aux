@@ -1,6 +1,6 @@
 // create / join / leave / disconnect
 const { rooms, saveRoom } = require("../roomStore");
-const { withPosition } = require("../roomLogic");
+const { withPosition, afterRoomChange } = require("../roomLogic");
 
 module.exports = function roomHandlers(io, socket) {
   socket.on("create-room", async () => {
@@ -37,6 +37,7 @@ module.exports = function roomHandlers(io, socket) {
       room.hostId = socket.id;
       socket.emit("promoted-to-host");
     }
+    await afterRoomChange(io, roomId); // tell everyone first, save after
     await saveRoom(roomId);
   });
 
@@ -56,7 +57,21 @@ module.exports = function roomHandlers(io, socket) {
         room.hostId = ""; // empty room: next person to join becomes host
       }
     }
+    await afterRoomChange(io, roomId); // tell everyone first, save after
     await saveRoom(roomId);
+  });
+
+  // someone closed the tab or lost connection: update the head-count and
+  // skip votes for every room they were in (they are gone by the next tick)
+  socket.on("disconnecting", () => {
+    const joined = [...socket.rooms].filter((id) => id !== socket.id);
+    setTimeout(() => {
+      joined.forEach((id) =>
+        afterRoomChange(io, id).catch((err) =>
+          console.error("Skip state error ❌", err.message)
+        )
+      );
+    }, 0);
   });
 
   socket.on("disconnect", async () => {

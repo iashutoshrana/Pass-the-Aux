@@ -16,6 +16,12 @@ export default function useParty() {
   const [partyStarted, setPartyStarted] = useState(false);
   const [hasPlayed, setHasPlayed] = useState(false); // a song has played in this room
   const [roomError, setRoomError] = useState("");
+  const [skipState, setSkipState] = useState({
+    votes: 0,
+    needed: 1,
+    participants: 1,
+    voters: [],
+  });
 
   const roomRef = useRef("");
   useEffect(() => {
@@ -81,6 +87,9 @@ export default function useParty() {
       setIsHost(true);
     });
 
+    // skip votes so far, and how many are needed
+    socket.on("skip-state", (state) => setSkipState(state));
+
     return () => {
       socket.off("room-created");
       socket.off("joined-room");
@@ -89,6 +98,7 @@ export default function useParty() {
       socket.off("play-song");
       socket.off("room-state");
       socket.off("promoted-to-host");
+      socket.off("skip-state");
     };
   }, []);
 
@@ -110,6 +120,13 @@ export default function useParty() {
     socket.emit("next-song", currentRoom);
   };
 
+  // guests vote to skip: send the id of the song we are looking at
+  const voteSkip = () => {
+    if (!currentSong) return;
+    socket.emit("vote-skip", { roomId: currentRoom, videoId: currentSong.videoId });
+  };
+  const hasVotedSkip = skipState.voters.includes(socket.id);
+
   const startParty = () => setPartyStarted(true);
 
   const leaveParty = () => {
@@ -125,6 +142,7 @@ export default function useParty() {
     setHasPlayed(false);
     setVotedSongs(new Set());
     setRoomError("");
+    setSkipState({ votes: 0, needed: 1, participants: 1, voters: [] });
   };
 
   return {
@@ -139,11 +157,14 @@ export default function useParty() {
     partyStarted,
     hasPlayed,
     roomError,
+    skipState,
+    hasVotedSkip,
     // actions
     createRoom,
     joinRoom,
     voteSong,
     nextSong,
+    voteSkip,
     startParty,
     leaveParty,
   };
