@@ -2,6 +2,16 @@ import { useState, useEffect, useRef } from "react";
 import { socket } from "../socket";
 import { clientId } from "../utils/clientId";
 
+// Keep the room code in the address, so a refresh puts you straight back in.
+const setRoomInUrl = (id) =>
+  window.history.replaceState(
+    {},
+    "",
+    `${window.location.pathname}?room=${encodeURIComponent(id)}`
+  );
+const clearRoomFromUrl = () =>
+  window.history.replaceState({}, "", window.location.pathname);
+
 // stamp the moment we received the song so the player knows how old `position` is
 const receive = (song) => (song ? { ...song, receivedAt: Date.now() } : null);
 
@@ -38,7 +48,7 @@ export default function useParty() {
     const roomFromUrl = new URLSearchParams(window.location.search).get("room");
     if (!roomFromUrl) return;
 
-    const join = () => socket.emit("join-room", roomFromUrl);
+    const join = () => socket.emit("join-room", { roomId: roomFromUrl, clientId });
     if (socket.connected) join();
     else socket.once("connect", join);
 
@@ -48,7 +58,8 @@ export default function useParty() {
   // After a reconnect the socket has a new id and left its rooms: rejoin
   useEffect(() => {
     const rejoin = () => {
-      if (roomRef.current) socket.emit("join-room", roomRef.current);
+      if (roomRef.current)
+        socket.emit("join-room", { roomId: roomRef.current, clientId });
     };
     socket.on("connect", rejoin);
     return () => socket.off("connect", rejoin);
@@ -59,15 +70,20 @@ export default function useParty() {
     socket.on("room-created", (id) => {
       setCurrentRoom(id);
       setIsHost(true);
+      setRoomInUrl(id);
     });
 
     socket.on("joined-room", (id) => {
       setCurrentRoom(id);
       setIsHost(false);
       setRoomError("");
+      setRoomInUrl(id);
     });
 
-    socket.on("room-error", (msg) => setRoomError(msg));
+    socket.on("room-error", (msg) => {
+      setRoomError(msg);
+      clearRoomFromUrl(); // a dead room code shouldn't be retried on every refresh
+    });
 
     socket.on("update-queue", (q) => {
       setQueue(q);
@@ -87,6 +103,11 @@ export default function useParty() {
       setIsHost(true);
     });
 
+    // the host opened the party in another tab: control moved there
+    socket.on("demoted-from-host", () => {
+      setIsHost(false);
+    });
+
     // skip votes so far, and how many are needed
     socket.on("skip-state", (state) => setSkipState(state));
 
@@ -98,15 +119,16 @@ export default function useParty() {
       socket.off("play-song");
       socket.off("room-state");
       socket.off("promoted-to-host");
+      socket.off("demoted-from-host");
       socket.off("skip-state");
     };
   }, []);
 
   // Things the user can do
-  const createRoom = () => socket.emit("create-room");
+  const createRoom = () => socket.emit("create-room", { clientId });
 
   const joinRoom = () => {
-    if (roomId.trim()) socket.emit("join-room", roomId.trim());
+    if (roomId.trim()) socket.emit("join-room", { roomId: roomId.trim(), clientId });
   };
 
   const voteSong = (videoId) => {
@@ -132,7 +154,7 @@ export default function useParty() {
   const leaveParty = () => {
     socket.emit("leave-room", currentRoom);
     // drop ?room=... from the address so a refresh doesn't rejoin
-    window.history.replaceState({}, "", window.location.pathname);
+    clearRoomFromUrl();
     setCurrentRoom("");
     setRoomId("");
     setQueue([]);

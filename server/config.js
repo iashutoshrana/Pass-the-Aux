@@ -17,4 +17,8 @@ module.exports = {
   SEARCH_LIMIT: 4,
 
   SPOTIFY_ID: /^[A-Za-z0-9]{22}$/,
+
+  // If the host disconnects (refresh, bad signal), wait this long before
+  // handing the party to someone else. A quick refresh keeps host control.
+  HOST_GRACE_MS: Number(process.env.HOST_GRACE_MS) || 20000,
 };

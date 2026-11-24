@@ -1,5 +1,6 @@
 // Pure room/queue helpers shared by the socket handlers.
 const { rooms, saveRoom } = require("./roomStore");
+const { HOST_GRACE_MS } = require("./config");
 
 // current song + how many seconds into it we are right now
 function withPosition(room) {
@@ -71,7 +72,50 @@ async function afterRoomChange(io, roomId) {
   io.to(roomId).emit("skip-state", state);
 }
 
+// ---------------------------------------------------------------------------
+// Host handling. A person is recognised by a permanent id kept in their
+// browser (clientId), not by their connection, so a refresh doesn't lose them.
+// ---------------------------------------------------------------------------
+
+// a clientId from the browser: only accept a sensible string
+function cleanClientId(value) {
+  return typeof value === "string" && value.length > 0 && value.length <= 64
+    ? value
+    : "";
+}
+
+// Give the party to the first person in the room. False if the room is empty.
+async function handOverHost(io, roomId) {
+  const room = rooms[roomId];
+  if (!room) return false;
+  const clients = io.sockets.adapter.rooms.get(roomId);
+  if (!clients || clients.size === 0) return false;
+
+  const newHost = [...clients][0];
+  room.hostId = newHost;
+  room.hostClientId = io.sockets.sockets.get(newHost)?.data.clientId || "";
+  io.to(newHost).emit("promoted-to-host");
+  await saveRoom(roomId);
+  return true;
+}
+
+// The host's connection dropped. Wait a little before giving the party away:
+// if they come straight back (a refresh), they keep control.
+function startHostGrace(io, roomId, deadSocketId) {
+  const room = rooms[roomId];
+  if (!room) return;
+  clearTimeout(room.graceTimer);
+  room.graceTimer = setTimeout(async () => {
+    room.graceTimer = null;
+    if (rooms[roomId] !== room || room.hostId !== deadSocketId) return; // host is back
+    await handOverHost(io, roomId);
+  }, HOST_GRACE_MS);
+}
+
 module.exports = {
+  cleanClientId,
+  handOverHost,
+  startHostGrace,
   withPosition,
   setCurrent,
   sortQueue,

@@ -8,13 +8,16 @@ const roomSchema = new mongoose.Schema({
   currentSong: { type: Object, default: null },
   startedAt: { type: Number, default: 0 }, // when the current song started (ms)
   hostId: { type: String, default: "" },
+  hostClientId: { type: String, default: "" }, // the host's permanent browser id
   lastActivity: { type: Date, default: Date.now },
 });
 
 const Room = mongoose.model("Room", roomSchema);
 
 // roomId -> { queue, currentSong, startedAt, hostId, lastActivity }
-const rooms = {};
+// No prototype, so a made-up room code like "__proto__" or "constructor"
+// can't match anything built into JavaScript.
+const rooms = Object.create(null);
 
 function connectDB() {
   return mongoose
@@ -36,6 +39,7 @@ async function loadRooms() {
         // rooms saved before sync existed have no start time
         startedAt: room.startedAt || (room.currentSong ? Date.now() : 0),
         hostId: room.hostId,
+        hostClientId: room.hostClientId || "",
         lastActivity: room.lastActivity,
       };
     });
@@ -56,6 +60,7 @@ async function saveRoom(roomId) {
         currentSong: room.currentSong,
         startedAt: room.startedAt || 0,
         hostId: room.hostId,
+        hostClientId: room.hostClientId || "",
         lastActivity: room.lastActivity,
       },
       { upsert: true }
@@ -71,6 +76,7 @@ function startCleanup() {
     const now = Date.now();
     for (const roomId in rooms) {
       if (now - new Date(rooms[roomId].lastActivity).getTime() > ROOM_TTL_MS) {
+        clearTimeout(rooms[roomId].graceTimer);
         delete rooms[roomId];
         try {
           await Room.deleteOne({ roomId });
