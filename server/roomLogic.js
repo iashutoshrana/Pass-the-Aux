@@ -2,12 +2,24 @@
 const { rooms, saveRoom } = require("./roomStore");
 const { HOST_GRACE_MS } = require("./config");
 
+// What is safe to send to everyone. Songs also carry who voted for them and
+// who added them. Those are people's permanent ids, which must stay private
+// (the host's id is what proves who the host is).
+function publicSong(song) {
+  const { voters, addedBy, ...rest } = song; // eslint-disable-line no-unused-vars
+  return rest;
+}
+const publicQueue = (queue) => queue.map(publicSong);
+
+// the id that identifies a person for voting: permanent id, else connection id
+const voterIdOf = (socket) => socket.data.clientId || socket.id;
+
 // current song + how many seconds into it we are right now
 function withPosition(room) {
   if (!room.currentSong) return null;
   if (!room.startedAt) room.startedAt = Date.now();
   return {
-    ...room.currentSong,
+    ...publicSong(room.currentSong),
     position: Math.max(0, (Date.now() - room.startedAt) / 1000),
   };
 }
@@ -34,7 +46,7 @@ async function advance(io, roomId) {
   room.queue = room.queue.filter((s) => s.videoId !== cur);
   setCurrent(room, room.queue[0] || null);
   room.lastActivity = Date.now();
-  io.to(roomId).emit("update-queue", room.queue);
+  io.to(roomId).emit("update-queue", publicQueue(room.queue));
   io.to(roomId).emit("play-song", withPosition(room));
   io.to(roomId).emit("skip-state", skipState(io, roomId));
   await saveRoom(roomId);
@@ -113,6 +125,9 @@ function startHostGrace(io, roomId, deadSocketId) {
 }
 
 module.exports = {
+  publicSong,
+  publicQueue,
+  voterIdOf,
   cleanClientId,
   handOverHost,
   startHostGrace,

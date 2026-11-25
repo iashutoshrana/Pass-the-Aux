@@ -7,7 +7,7 @@ const setRoomInUrl = (id) =>
   window.history.replaceState(
     {},
     "",
-    `${window.location.pathname}?room=${encodeURIComponent(id)}`
+    `${window.location.pathname}?room=${encodeURIComponent(id)}`,
   );
 const clearRoomFromUrl = () =>
   window.history.replaceState({}, "", window.location.pathname);
@@ -48,7 +48,8 @@ export default function useParty() {
     const roomFromUrl = new URLSearchParams(window.location.search).get("room");
     if (!roomFromUrl) return;
 
-    const join = () => socket.emit("join-room", { roomId: roomFromUrl, clientId });
+    const join = () =>
+      socket.emit("join-room", { roomId: roomFromUrl, clientId });
     if (socket.connected) join();
     else socket.once("connect", join);
 
@@ -94,9 +95,11 @@ export default function useParty() {
     });
 
     // Late joiner gets current state (with position)
-    socket.on("room-state", ({ queue: q, currentSong: cs }) => {
+    socket.on("room-state", ({ queue: q, currentSong: cs, votedVideoIds }) => {
       setQueue(q);
       setCurrentSong(receive(cs));
+      // songs you already voted for (the server remembers, even after a refresh)
+      setVotedSongs(new Set(votedVideoIds || []));
     });
 
     socket.on("promoted-to-host", () => {
@@ -128,7 +131,8 @@ export default function useParty() {
   const createRoom = () => socket.emit("create-room", { clientId });
 
   const joinRoom = () => {
-    if (roomId.trim()) socket.emit("join-room", { roomId: roomId.trim(), clientId });
+    if (roomId.trim())
+      socket.emit("join-room", { roomId: roomId.trim(), clientId });
   };
 
   const voteSong = (videoId) => {
@@ -145,7 +149,10 @@ export default function useParty() {
   // guests vote to skip: send the id of the song we are looking at
   const voteSkip = () => {
     if (!currentSong) return;
-    socket.emit("vote-skip", { roomId: currentRoom, videoId: currentSong.videoId });
+    socket.emit("vote-skip", {
+      roomId: currentRoom,
+      videoId: currentSong.videoId,
+    });
   };
   const hasVotedSkip = skipState.voters.includes(socket.id);
 

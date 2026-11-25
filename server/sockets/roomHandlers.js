@@ -2,14 +2,33 @@
 const { rooms, saveRoom } = require("../roomStore");
 const {
   withPosition,
+  publicQueue,
+  voterIdOf,
   afterRoomChange,
   cleanClientId,
   handOverHost,
   startHostGrace,
 } = require("../roomLogic");
+const {
+  clientIp,
+  allowRoomCreation,
+  joinBlocked,
+  noteFailedJoin,
+} = require("../limits");
+const { MAX_PEOPLE } = require("../config");
 
 module.exports = function roomHandlers(io, socket) {
   socket.on("create-room", async (payload) => {
+    const ip = clientIp(socket);
+    if (!allowRoomCreation(ip)) {
+      console.log(`Party limit reached for ${ip}`);
+      socket.emit(
+        "room-error",
+        "You've started too many parties. Please try again later."
+      );
+      return;
+    }
+
     const clientId = cleanClientId(payload && payload.clientId);
     socket.data.clientId = clientId; // who this connection belongs to
     const roomId = Math.random().toString(36).substring(2, 8);
@@ -32,22 +51,51 @@ module.exports = function roomHandlers(io, socket) {
     const { roomId, clientId: rawId } =
       typeof payload === "string" ? { roomId: payload } : payload || {};
     const clientId = cleanClientId(rawId);
+    const ip = clientIp(socket);
+
+    // someone guessing room codes gets locked out for a minute
+    if (joinBlocked(ip)) {
+      console.log(`Too many wrong room codes from ${ip}`);
+      socket.emit("room-error", "Too many attempts. Please wait a minute.");
+      return;
+    }
+
     const room = typeof roomId === "string" ? rooms[roomId] : undefined;
     if (!room) {
+      noteFailedJoin(ip);
       socket.emit("room-error", "Room not found");
       return;
     }
+
+    const hostConnected = io.sockets.sockets.has(room.hostId);
+    const isOriginalHost = clientId && room.hostClientId === clientId;
+
+    // party size limit (the returning host can always get back in)
+    const people = io.sockets.adapter.rooms.get(roomId);
+    if (
+      !socket.rooms.has(roomId) &&
+      !isOriginalHost &&
+      people &&
+      people.size >= MAX_PEOPLE
+    ) {
+      socket.emit("room-error", "This party is full");
+      return;
+    }
+
     socket.data.clientId = clientId; // who this connection belongs to
     socket.join(roomId);
     room.lastActivity = Date.now();
     socket.emit("joined-room", roomId);
-    socket.emit("room-state", {
-      queue: room.queue,
-      currentSong: withPosition(room), // includes position
-    });
 
-    const hostConnected = io.sockets.sockets.has(room.hostId);
-    const isOriginalHost = clientId && room.hostClientId === clientId;
+    // the songs this person already voted for (their "Voted" buttons)
+    const voterId = voterIdOf(socket);
+    socket.emit("room-state", {
+      queue: publicQueue(room.queue),
+      currentSong: withPosition(room), // includes position
+      votedVideoIds: room.queue
+        .filter((s) => s.voters.includes(voterId))
+        .map((s) => s.videoId),
+    });
 
     if (isOriginalHost) {
       // the host is back (refresh, reconnect, or a second tab): give control back
@@ -64,6 +112,7 @@ module.exports = function roomHandlers(io, socket) {
       room.hostClientId = clientId;
       socket.emit("promoted-to-host");
     }
+
     await afterRoomChange(io, roomId); // tell everyone first, save after
     await saveRoom(roomId);
   });
